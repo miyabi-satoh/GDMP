@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <item
+        android:id="@+id/action_refresh"
+        android:showAsAction="ifRoom"
+        android:icon="@drawable/ic_menu_refresh"
+        android:title="@string/action_refresh"/>
+
+    <item
+        android:id="@+id/action_select_all"
+        android:title="@string/select_all"
+        android:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_invert"
+        android:title="@string/select_invert"
+        android:showAsAction="never"/>
+
+</menu>

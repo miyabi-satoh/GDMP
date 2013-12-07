@@ -1,0 +1,12 @@
+# view AndroidManifest.xml #generated:37
+-keep class jp.qee.miyabi.gdmp.MusicPlayerService { <init>(...); }
+
+# view AndroidManifest.xml #generated:19
+-keep class jp.qee.miyabi.gdmp.PlayListActivity { <init>(...); }
+
+# view AndroidManifest.xml #generated:33
+-keep class jp.qee.miyabi.gdmp.TestActivity { <init>(...); }
+
+# view AndroidManifest.xml #generated:29
+-keep class jp.qee.miyabi.gdmp.TrackListActivity { <init>(...); }
+

@@ -57,14 +57,14 @@ public class TrackListActivity extends ListActivity {
 				ListView listView = (ListView) parent;
 				File item = (File) listView.getItemAtPosition(position);
 				if (item.getMimeType().equals(MIME_FOLDER)) {
-					loadContents(item.getId());
+					loadContents(item.getId(), false);
 				} else {
 					((TrackListViewAdapter) getListAdapter()).notifyDataSetChanged();
 				}
 			}
 		});
 		
-        loadContents("root");
+        loadContents("root", false);
 	}
 
 	@Override
@@ -73,7 +73,7 @@ public class TrackListActivity extends ListActivity {
 		case KeyEvent.KEYCODE_BACK:
 			if (mFolderStack.size() > 0) {
 				mCurrentId = null;
-				loadContents(mFolderStack.pop());
+				loadContents(mFolderStack.pop(), false);
 			}
 			return true;
 		}
@@ -120,21 +120,37 @@ public class TrackListActivity extends ListActivity {
 		}
 	}
 
-	private void loadContents(String id) {
+	private void loadContents(String id, boolean force) {
 		if (mCurrentId != null) {
 			mFolderStack.push(mCurrentId);
 		}
         mCurrentId = id;
-        String query = "'" + mCurrentId + "' in parents and trashed=false";
-        (new LoadContentsTask(this)).execute(query);
+    	String query = "'" + mCurrentId + "' in parents and trashed=false";
+    	(new LoadContentsTask(this, force)).execute(query);
 	}
-	
+
+	private void setTrackList(ArrayList<File> list) {
+		setListAdapter(new TrackListViewAdapter(TrackListActivity.this, list));
+		for (int i = 0; i < list.size(); i++) {
+			File item = list.get(i);
+			// チェックボックスの初期状態をセットする
+			if (DBAdapter.getInstance(TrackListActivity.this).getItemById(item.getId()) != null) {
+				getListView().setItemChecked(i, true);
+			} else {
+				getListView().setItemChecked(i, false);
+			}
+		}
+	}
+
 	private class LoadContentsTask extends AsyncTask<String, Integer, ArrayList<File>> {
 		private ProgressDialog mProgressDialog;
 		private Context mContext;
+		private boolean mForce;
+		private boolean mUseCache = false;
 		
-		public LoadContentsTask(Context ctx) {
+		public LoadContentsTask(Context ctx, boolean force) {
 			mContext = ctx;
+			mForce = force;
 		}
 
 		@Override
@@ -150,7 +166,14 @@ public class TrackListActivity extends ListActivity {
 
 		@Override
 		protected ArrayList<File> doInBackground(String... params) {
-			ArrayList<File> retList = new ArrayList<File>();
+	        // DBキャッシュを検索
+			ArrayList<File> retList = DBAdapter.getInstance(mContext).getDriveCache(mCurrentId);
+	        if (!mForce && retList.size() > 0) {
+	        	mUseCache = true;
+	        	return retList;
+	        }
+			
+	        mUseCache = false;
 			Files.List request = null;
 			Drive service = GDriveUtils.getDriveService(mContext);
 			try {
@@ -214,6 +237,10 @@ public class TrackListActivity extends ListActivity {
 				} else {
 					getListView().setItemChecked(i, false);
 				}
+			}
+			// DBにキャッシュ
+			if (!mUseCache) {
+				DBAdapter.getInstance(mContext).setDriveCache(mCurrentId, result);
 			}
 		}
 	}

@@ -1,5 +1,7 @@
 package jp.qee.miyabi.gdmp;
 
+import java.util.ArrayList;
+
 import com.google.api.services.drive.model.File;
 
 import android.content.ContentValues;
@@ -13,7 +15,7 @@ import android.util.Log;
 
 public class DBAdapter {
 	static final private String DB_NAME = "GDMP.db";
-	static final private int DB_VERSION = 2;
+	static final private int DB_VERSION = 4;
 //	static private PlaylistDBAdapter mSingleton = null;
 	private DBHelper mDBHelper;
 	private SQLiteDatabase mDB;
@@ -195,6 +197,42 @@ public class DBAdapter {
 		close();
 	}
 	
+	public void setDriveCache(String parent_id, ArrayList<File> files) {
+		open();
+		mDB.beginTransaction();
+		try {
+			mDB.delete("drivecache", "parent_id=?", new String[]{ parent_id });
+			for (File file : files) {
+				ContentValues values = new ContentValues();
+				values.put("id", file.getId());
+				values.put("parent_id", parent_id);
+				values.put("title", file.getTitle());
+				values.put("mimetype", file.getMimeType());
+				mDB.insert("drivecache", null, values);
+			}
+			mDB.setTransactionSuccessful();
+		} finally {
+			mDB.endTransaction();
+		}
+		close();
+	}
+
+	public ArrayList<File> getDriveCache(String parent_id) {
+		ArrayList<File> retVal = new ArrayList<File>();
+		open();
+		String sql = "SELECT * FROM drivecache WHERE parent_id=?";
+		Cursor cs = mDB.rawQuery(sql, new String[]{ parent_id });
+		while (cs.moveToNext()) {
+			File file = new File();
+			file.setId(cs.getString(cs.getColumnIndex("id")));
+			file.setTitle(cs.getString(cs.getColumnIndex("title")));
+			file.setMimeType(cs.getString(cs.getColumnIndex("mimetype")));
+			retVal.add(file);
+		}
+		close();
+		return retVal;
+	}
+
 	private PlayListItem makeItemFromCursor(Cursor cs) {
 		PlayListItem retVal = null;
 		if (cs.moveToFirst()) {
@@ -207,7 +245,7 @@ public class DBAdapter {
 			retVal.setArtist(cs.getString(cs.getColumnIndex("artist")));
 			retVal.setCoverImage(cs.getBlob(cs.getColumnIndex("image")));
 		} else {
-			Log.d("TEST", "makeItemFromCursor:該当なし");
+//			Log.d("TEST", "makeItemFromCursor:該当なし");
 		}
 		return retVal;
 	}
@@ -216,6 +254,27 @@ public class DBAdapter {
 	// SQLiteOpenHelper
 	//
 	private static class DBHelper extends SQLiteOpenHelper {
+		static final String CREATE_PLAYLIST_TABLE =
+				"CREATE TABLE playlist ("
+				+ "	id TEXT NOT NULL PRIMARY KEY,"
+				+ " position INTEGER NOT NULL,"
+				+ " file_title TEXT NOT NULL,"
+				+ " file_size INTEGER NOT NULL,"
+				+ " played INTEGER DEFAULT 0,"
+				+ " title TEXT,"
+				+ " artist TEXT,"
+				+ " image BLOB"
+				+ ")";
+		static final String CREATE_DRIVECACHE_TABLE =
+				"CREATE TABLE drivecache ("
+				+ "	id TEXT NOT NULL PRIMARY KEY,"
+				+ " parent_id TEXT NOT NULL,"
+				+ " title TEXT NOT NULL,"
+				+ " mimetype TEXT NOT NULL,"
+				+ " updated_at TIMESTAMP DEFAULT (DATETIME('now','localtime')) "
+				+ ")";
+		static final String DROP_PLAYLIST_TABLE = "DROP TABLE IF EXISTS playlist";
+		static final String DROP_DRIVECACHE_TABLE = "DROP TABLE IF EXISTS drivecache";
 
 		public DBHelper(Context ctx) {
 			super(ctx, DB_NAME, null, DB_VERSION);
@@ -223,20 +282,14 @@ public class DBAdapter {
 
 		@Override
 		public void onCreate(SQLiteDatabase db) {
-			db.execSQL("CREATE TABLE playlist ("
-					+ "	id TEXT PRIMARY KEY,"
-					+ " position INTEGER NOT NULL,"
-					+ " file_title TEXT NOT NULL,"
-					+ " file_size INTEGER NOT NULL,"
-					+ " played INTEGER DEFAULT 0,"
-					+ " title TEXT,"
-					+ " artist TEXT,"
-					+ " image BLOB)");
+			db.execSQL(CREATE_PLAYLIST_TABLE);
+			db.execSQL(CREATE_DRIVECACHE_TABLE);
 		}
 	
 		@Override
 		public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-			db.execSQL("DROP TABLE IF EXISTS playlist");
+			db.execSQL(DROP_PLAYLIST_TABLE);
+			db.execSQL(DROP_DRIVECACHE_TABLE);
 			onCreate(db);
 		}
 	}
